@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import Image from "next/image";
+import api from "../utils/api";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 type InventoryItem = {
   id: number;
@@ -72,18 +73,18 @@ export default function Home() {
     async function loadDashboardData() {
       try {
         const [inventoryRes, financeRes, salesRes, insightsRes] = await Promise.all([
-          axios.get<InventoryResponse>(`${API_BASE_URL}/inventory`),
-          axios.get<FinanceResponse>(`${API_BASE_URL}/finance`),
-          axios.get<SalesResponse>(`${API_BASE_URL}/sales`),
-          axios.get<InsightsResponse>(`${API_BASE_URL}/ai/insights`),
+          api.get("/inventory"),
+          api.get("/finance"),
+          api.get("/sales"),
+          api.get("/ai/insights"),
         ]);
 
-        setInventory(inventoryRes.data);
-        setFinance(financeRes.data);
-        setSales(salesRes.data);
-        setInsights(insightsRes.data);
+        setInventory(inventoryRes.data as InventoryResponse);
+        setFinance(financeRes.data as FinanceResponse);
+        setSales(salesRes.data as SalesResponse);
+        setInsights(insightsRes.data as InsightsResponse);
       } catch {
-        setError("Could not load data from backend. Make sure FastAPI is running on port 8000.");
+        setError("Could not load data from backend. Check NEXT_PUBLIC_API_URL and CORS settings.");
       } finally {
         setLoading(false);
       }
@@ -227,6 +228,24 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <Card title="Model Chart Preview">
+          <p className="mb-3 text-sm text-slate-700">Loaded directly from deployed backend image endpoint.</p>
+          {API_BASE_URL ? (
+            <Image
+              src={`${API_BASE_URL}/models/demo/plots`}
+              alt="Corelytics model chart"
+              width={1400}
+              height={420}
+              className="w-full rounded-xl border border-slate-200"
+              unoptimized
+            />
+          ) : (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+              Set NEXT_PUBLIC_API_URL in .env.local to load the chart.
+            </p>
+          )}
+        </Card>
 
         <div className="grid gap-6 md:grid-cols-3">
 
