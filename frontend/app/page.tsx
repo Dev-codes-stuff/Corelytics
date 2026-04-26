@@ -5,6 +5,8 @@ import Image from "next/image";
 import api from "../utils/api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const CARD_CLASS =
+  "rounded-2xl bg-white p-6 shadow-md transition-transform duration-200 hover:-translate-y-0.5";
 
 type InventoryItem = {
   id: number;
@@ -44,6 +46,10 @@ type InsightsResponse = {
   alerts: string[];
   recommendations: string[];
   summary: string;
+  predictions?: {
+    inventory_days_left?: Record<string, number | null>;
+    cash_forecast?: number;
+  };
 };
 
 function Card({
@@ -54,11 +60,77 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className={CARD_CLASS}>
       <h2 className="mb-4 text-xl font-semibold text-slate-900">{title}</h2>
       {children}
     </section>
   );
+}
+
+function MetricCard({
+  title,
+  icon,
+  value,
+  note,
+  badgeClass,
+}: {
+  title: string;
+  icon: string;
+  value: string | number;
+  note: string;
+  badgeClass: string;
+}) {
+  return (
+    <div className={CARD_CLASS}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
+      <p className="mt-3 text-2xl font-bold text-gray-900">
+        {icon} {value}
+      </p>
+      <p className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
+        {note}
+      </p>
+    </div>
+  );
+}
+
+function calculateInventoryDaysLeft(items: InventoryItem[]) {
+  const daysLeft: Record<string, number | null> = {};
+
+  items.forEach((item) => {
+    if (item.daily_sales <= 0) {
+      daysLeft[item.item] = null;
+      return;
+    }
+
+    daysLeft[item.item] = Number((item.stock / item.daily_sales).toFixed(1));
+  });
+
+  return daysLeft;
+}
+
+function improveRecommendationText(
+  recommendation: string,
+  items: InventoryItem[],
+  inventoryDaysLeft: Record<string, number | null>
+) {
+  // Beginner tip: convert generic backend text into a more actionable message.
+  if (recommendation.startsWith("Reorder ") && recommendation.endsWith(" soon")) {
+    const itemName = recommendation.replace("Reorder ", "").replace(" soon", "");
+    const item = items.find((entry) => entry.item === itemName);
+    const daysLeft = inventoryDaysLeft[itemName];
+
+    if (item && daysLeft !== null && daysLeft !== undefined) {
+      const reorderUnits = Math.max(item.daily_sales * 10 - item.stock, 20);
+      const roundedDays = Math.max(1, Math.round(daysLeft));
+      return `Reorder ${reorderUnits} units - stockout in ${roundedDays} days`;
+    }
+  }
+
+  if (recommendation === "Keep daily cash flow positive") {
+    return "Keep daily cash flow positive by controlling expense growth";
+  }
+
+  return recommendation;
 }
 
 export default function Home() {
@@ -71,6 +143,12 @@ export default function Home() {
 
   useEffect(() => {
     async function loadDashboardData() {
+      if (!API_BASE_URL) {
+        setError("NEXT_PUBLIC_API_URL is missing. Add it in frontend/.env.local and restart npm run dev.");
+        setLoading(false);
+        return;
+      }
+
       try {
         const [inventoryRes, financeRes, salesRes, insightsRes] = await Promise.all([
           api.get("/inventory"),
@@ -95,9 +173,9 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <div className="mx-auto max-w-6xl rounded-2xl bg-white p-8 text-slate-700 shadow-sm">
-          Loading Corelytics dashboard...
+      <main className="min-h-screen bg-gray-100 p-6 md:p-10">
+        <div className="mx-auto max-w-7xl rounded-2xl bg-white p-8 text-gray-700 shadow-md">
+          Loading insights...
         </div>
       </main>
     );
@@ -105,157 +183,182 @@ export default function Home() {
 
   if (error) {
     return (
-      <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <div className="mx-auto max-w-6xl rounded-2xl border border-red-200 bg-red-50 p-8 text-red-700">
+      <main className="min-h-screen bg-gray-100 p-6 md:p-10">
+        <div className="mx-auto max-w-7xl rounded-2xl border border-red-200 bg-red-50 p-8 text-red-700 shadow-md">
           {error}
         </div>
       </main>
     );
   }
 
-  const minInventoryDays = Math.min(
-    ...(inventory?.items ?? []).map((item) => item.stock / Math.max(item.daily_sales, 1))
+  const inventoryItems = inventory?.items ?? [];
+  const inventoryDaysLeft = insights?.predictions?.inventory_days_left ?? calculateInventoryDaysLeft(inventoryItems);
+
+  // Beginner tip: metric status is based on smallest days-left value.
+  const finiteInventoryDays = Object.values(inventoryDaysLeft).filter(
+    (value): value is number => typeof value === "number"
   );
+  const minInventoryDays = finiteInventoryDays.length > 0 ? Math.min(...finiteInventoryDays) : Infinity;
 
   let inventoryRisk = "Low";
-  let inventoryRiskStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  let inventoryRiskStyle = "bg-green-100 text-green-700";
+  let inventoryRiskNote = "Stock levels are safe";
 
   if (minInventoryDays <= 7) {
     inventoryRisk = "High";
-    inventoryRiskStyle = "bg-rose-50 text-rose-700 border-rose-200";
+    inventoryRiskStyle = "bg-red-100 text-red-700";
+    inventoryRiskNote = "Risk of stockout soon";
   } else if (minInventoryDays <= 14) {
     inventoryRisk = "Medium";
-    inventoryRiskStyle = "bg-amber-50 text-amber-700 border-amber-200";
+    inventoryRiskStyle = "bg-yellow-100 text-yellow-700";
+    inventoryRiskNote = "Watch fast-moving items";
   }
 
-  const cashForecast = finance?.cash_forecast_10_days ?? 0;
+  const cashForecast = insights?.predictions?.cash_forecast ?? finance?.cash_forecast_10_days ?? 0;
   const currentCash = finance?.data.cash ?? 0;
 
   let cashStatus = "Healthy";
-  let cashStatusStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  let cashStatusStyle = "bg-green-100 text-green-700";
+  let cashStatusNote = "Cash trend looks stable";
 
   if (cashForecast < 0) {
     cashStatus = "Critical";
-    cashStatusStyle = "bg-rose-50 text-rose-700 border-rose-200";
+    cashStatusStyle = "bg-red-100 text-red-700";
+    cashStatusNote = "Immediate action needed";
   } else if (cashForecast < currentCash) {
-    cashStatus = "Watch";
-    cashStatusStyle = "bg-amber-50 text-amber-700 border-amber-200";
+    cashStatus = "Warning";
+    cashStatusStyle = "bg-yellow-100 text-yellow-700";
+    cashStatusNote = "Cash is trending down";
   }
 
   const salesOpportunitiesCount = sales?.high_probability_deals.length ?? 0;
+  const demandChartUrl = API_BASE_URL ? `${API_BASE_URL}/models/sales/forecast/plot` : "";
+  const cashChartUrl = API_BASE_URL ? `${API_BASE_URL}/models/finance/cash-forecast/plot` : "";
+
+  const alerts = insights?.alerts?.length ? insights.alerts : ["No alerts - business running smoothly"];
+  const recommendations = (insights?.recommendations ?? []).map((recommendation) =>
+    improveRecommendationText(recommendation, inventoryItems, inventoryDaysLeft)
+  );
+  const displayRecommendations =
+    recommendations.length > 0 ? recommendations : ["No recommendations - keep current strategy"];
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-10">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-2xl bg-slate-900 px-6 py-5 text-white shadow-sm">
-          <h1 className="text-2xl font-bold">Corelytics AI ERP Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-200">Live view from FastAPI backend</p>
+    <main className="min-h-screen bg-gray-100 p-6 md:p-10">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="rounded-2xl bg-white p-6 shadow-md">
+          <h1 className="text-3xl font-bold text-gray-900 md:text-4xl">Corelytics - Your AI Business Brain 🧠</h1>
+          <p className="mt-2 text-base text-gray-600">Live insights powered by AI</p>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Inventory Risk
+        <section className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 shadow-md md:p-10">
+          <div className="mb-8">
+            <p className="text-sm font-semibold uppercase tracking-wider text-blue-100">Main Feature</p>
+            <h2 className="mt-2 text-3xl font-bold text-white md:text-4xl">Corelytics Intelligence 🧠</h2>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-blue-100 md:text-lg">
+              Real-time AI signals for inventory, finance, and sales performance.
             </p>
-            <p className="mt-2 text-xl font-bold text-slate-900">{inventoryRisk}</p>
-            <span
-              className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${inventoryRiskStyle}`}
-            >
-              Based on stock vs daily sales
-            </span>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cash Status</p>
-            <p className="mt-2 text-xl font-bold text-slate-900">{cashStatus}</p>
-            <span
-              className={`mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${cashStatusStyle}`}
-            >
-              10-day forecast: ${cashForecast}
-            </span>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Sales Opportunities
-            </p>
-            <p className="mt-2 text-xl font-bold text-slate-900">{salesOpportunitiesCount}</p>
-            <span className="mt-3 inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
-              High-probability deals
-            </span>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-8 shadow-lg md:p-10">
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-                Main Feature
-              </p>
-              <h2 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">AI Insights</h2>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
-              Corelytics Intelligence
-            </span>
-          </div>
-
-          <div className="rounded-2xl bg-white/80 p-5 shadow-sm md:p-6">
-            <h3 className="mb-2 text-lg font-semibold text-slate-900">🧠 Summary</h3>
-            <p className="text-sm leading-7 text-slate-700 md:text-base">{insights?.summary}</p>
-          </div>
-
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            <div className="rounded-2xl bg-white/80 p-5 shadow-sm md:p-6">
-              <h3 className="mb-3 text-lg font-semibold text-slate-900">🚨 Alerts</h3>
-              <ul className="space-y-2 text-sm text-slate-700 md:text-base">
-                {(insights?.alerts ?? []).map((alert) => (
-                  <li key={alert} className="rounded-lg bg-rose-50 px-3 py-2">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl bg-white/15 p-6 shadow-md backdrop-blur-sm">
+              <h3 className="mb-3 text-xl font-semibold text-white">⚠️ Alerts</h3>
+              <ul className="space-y-2 text-sm leading-6 text-blue-50 md:text-base">
+                {alerts.map((alert) => (
+                  <li key={alert} className="rounded-xl bg-white/15 px-3 py-2">
                     {alert}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="rounded-2xl bg-white/80 p-5 shadow-sm md:p-6">
-              <h3 className="mb-3 text-lg font-semibold text-slate-900">✅ Recommendations</h3>
-              <ul className="space-y-2 text-sm text-slate-700 md:text-base">
-                {(insights?.recommendations ?? []).map((recommendation) => (
-                  <li key={recommendation} className="rounded-lg bg-emerald-50 px-3 py-2">
+            <div className="rounded-2xl bg-white/15 p-6 shadow-md backdrop-blur-sm">
+              <h3 className="mb-3 text-xl font-semibold text-white">💡 Recommendations</h3>
+              <ul className="space-y-2 text-sm leading-6 text-blue-50 md:text-base">
+                {displayRecommendations.map((recommendation) => (
+                  <li key={recommendation} className="rounded-xl bg-white/15 px-3 py-2">
                     {recommendation}
                   </li>
                 ))}
               </ul>
             </div>
+
+            <div className="rounded-2xl bg-white/15 p-6 shadow-md backdrop-blur-sm">
+              <h3 className="mb-3 text-xl font-semibold text-white">📊 Summary</h3>
+              <p className="text-sm leading-7 text-blue-50 md:text-base">{insights?.summary}</p>
+            </div>
           </div>
         </section>
 
-        <Card title="Model Chart Preview">
-          <p className="mb-3 text-sm text-slate-700">Loaded directly from deployed backend image endpoint.</p>
-          {API_BASE_URL ? (
-            <Image
-              src={`${API_BASE_URL}/models/demo/plots`}
-              alt="Corelytics model chart"
-              width={1400}
-              height={420}
-              className="w-full rounded-xl border border-slate-200"
-              unoptimized
-            />
-          ) : (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-              Set NEXT_PUBLIC_API_URL in .env.local to load the chart.
-            </p>
-          )}
-        </Card>
+        <section className="grid gap-4 md:grid-cols-3">
+          <MetricCard
+            title="Inventory Risk"
+            icon="📦"
+            value={inventoryRisk}
+            note={inventoryRiskNote}
+            badgeClass={inventoryRiskStyle}
+          />
+          <MetricCard
+            title="Cash Status"
+            icon="💰"
+            value={cashStatus}
+            note={cashStatusNote}
+            badgeClass={cashStatusStyle}
+          />
+          <MetricCard
+            title="Sales Opportunities"
+            icon="🎯"
+            value={salesOpportunitiesCount}
+            note="High-probability deals"
+            badgeClass="bg-green-100 text-green-700"
+          />
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Card title="Demand Forecast Chart">
+            <p className="mb-4 text-sm text-gray-600">Projected demand trend from the sales forecasting model.</p>
+            {API_BASE_URL ? (
+              <Image
+                src={demandChartUrl}
+                alt="Demand forecast chart"
+                width={1200}
+                height={520}
+                className="w-full rounded-xl border border-gray-200"
+                unoptimized
+              />
+            ) : (
+              <p className="rounded-lg bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
+                Set NEXT_PUBLIC_API_URL in .env.local to load charts.
+              </p>
+            )}
+          </Card>
+
+          <Card title="Cash Flow Chart">
+            <p className="mb-4 text-sm text-gray-600">10-day cash forecast generated by the finance model.</p>
+            {API_BASE_URL ? (
+              <Image
+                src={cashChartUrl}
+                alt="Cash flow chart"
+                width={1200}
+                height={520}
+                className="w-full rounded-xl border border-gray-200"
+                unoptimized
+              />
+            ) : (
+              <p className="rounded-lg bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
+                Set NEXT_PUBLIC_API_URL in .env.local to load charts.
+              </p>
+            )}
+          </Card>
+        </section>
 
         <div className="grid gap-6 md:grid-cols-3">
-
           <Card title="Inventory Summary">
-            <p className="mb-3 text-sm text-slate-700">Total items: {inventory?.count ?? 0}</p>
-            <div className="space-y-2 text-sm text-slate-700">
+            <p className="mb-4 text-sm text-gray-600">Total items: {inventory?.count ?? 0}</p>
+            <div className="space-y-2 text-sm text-gray-700">
               {(inventory?.items ?? []).map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
                 >
                   <span>{item.item}</span>
                   <span>Stock: {item.stock}</span>
@@ -265,26 +368,26 @@ export default function Home() {
           </Card>
 
           <Card title="Finance Summary">
-            <div className="space-y-2 text-sm text-slate-700">
+            <div className="space-y-2 text-sm text-gray-700">
               <p>Current cash: ${finance?.data.cash ?? 0}</p>
               <p>Daily income: ${finance?.data.daily_income ?? 0}</p>
               <p>Daily expense: ${finance?.data.daily_expense ?? 0}</p>
-              <p className="font-semibold text-slate-900">
+              <p className="font-semibold text-gray-900">
                 Forecast (10 days): ${finance?.cash_forecast_10_days ?? 0}
               </p>
             </div>
           </Card>
 
           <Card title="Sales Summary">
-            <p className="mb-3 text-sm text-slate-700">Total deals: {sales?.count ?? 0}</p>
-            <p className="mb-3 text-sm text-slate-700">
+            <p className="mb-2 text-sm text-gray-600">Total deals: {sales?.count ?? 0}</p>
+            <p className="mb-4 text-sm text-gray-600">
               High-probability deals: {sales?.high_probability_deals.length ?? 0}
             </p>
-            <div className="space-y-2 text-sm text-slate-700">
+            <div className="space-y-2 text-sm text-gray-700">
               {(sales?.deals ?? []).map((deal) => (
                 <div
                   key={deal.deal_id}
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
                 >
                   <span>{deal.customer}</span>
                   <span>{Math.round(deal.probability * 100)}%</span>
