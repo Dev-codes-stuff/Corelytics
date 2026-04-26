@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import {
   FiArrowRight,
   FiBarChart2,
-  FiBrain,
+  FiCpu,
   FiCheckCircle,
   FiDollarSign,
   FiLayers,
@@ -15,7 +15,7 @@ const FEATURES = [
   {
     title: "AI Insights",
     description: "Instant alerts and summaries that help your team prioritize what matters first.",
-    icon: FiBrain,
+    icon: FiCpu,
   },
   {
     title: "Demand Forecasting",
@@ -52,7 +52,7 @@ const STEPS = [
 const cardClass =
   "bg-white p-6 rounded-2xl shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl";
 
-const sectionIntroVariants = {
+const sectionIntroVariants: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -61,7 +61,7 @@ const sectionIntroVariants = {
   },
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: {},
   visible: {
     transition: {
@@ -70,7 +70,7 @@ const staggerContainer = {
   },
 };
 
-const staggerItem = {
+const staggerItem: Variants = {
   hidden: { opacity: 0, y: 22 },
   visible: {
     opacity: 1,
