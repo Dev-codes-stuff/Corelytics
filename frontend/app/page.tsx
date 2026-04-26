@@ -1,402 +1,255 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import api from "../utils/api";
+import { motion } from "framer-motion";
+import {
+  FiArrowRight,
+  FiBarChart2,
+  FiBrain,
+  FiCheckCircle,
+  FiDollarSign,
+  FiLayers,
+  FiTrendingUp,
+} from "react-icons/fi";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-const CARD_CLASS =
-  "rounded-2xl bg-white p-6 shadow-md transition-transform duration-200 hover:-translate-y-0.5";
+const FEATURES = [
+  {
+    title: "AI Insights",
+    description: "Instant alerts and summaries that help your team prioritize what matters first.",
+    icon: FiBrain,
+  },
+  {
+    title: "Demand Forecasting",
+    description: "Predict demand changes early to reduce stockouts and over-ordering.",
+    icon: FiTrendingUp,
+  },
+  {
+    title: "Cash Flow Prediction",
+    description: "Track upcoming cash trends so finance decisions stay proactive.",
+    icon: FiDollarSign,
+  },
+  {
+    title: "Smart Recommendations",
+    description: "Get simple next actions based on data from inventory, finance, and sales.",
+    icon: FiLayers,
+  },
+];
 
-type InventoryItem = {
-  id: number;
-  item: string;
-  stock: number;
-  daily_sales: number;
+const STEPS = [
+  {
+    title: "Connect your data",
+    description: "Bring your business data into one dashboard view.",
+  },
+  {
+    title: "AI analyzes patterns",
+    description: "Corelytics scans trends and risk signals in real time.",
+  },
+  {
+    title: "Get actionable decisions",
+    description: "Receive practical recommendations your team can execute quickly.",
+  },
+];
+
+const cardClass =
+  "bg-white p-6 rounded-2xl shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl";
+
+const sectionIntroVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.65, ease: "easeOut" },
+  },
 };
 
-type InventoryResponse = {
-  count: number;
-  items: InventoryItem[];
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.14,
+    },
+  },
 };
 
-type FinanceResponse = {
-  data: {
-    cash: number;
-    daily_income: number;
-    daily_expense: number;
-  };
-  cash_forecast_10_days: number;
+const staggerItem = {
+  hidden: { opacity: 0, y: 22 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, ease: "easeOut" },
+  },
 };
 
-type SalesDeal = {
-  deal_id: string;
-  customer: string;
-  value: number;
-  probability: number;
-};
-
-type SalesResponse = {
-  count: number;
-  deals: SalesDeal[];
-  high_probability_deals: SalesDeal[];
-};
-
-type InsightsResponse = {
-  alerts: string[];
-  recommendations: string[];
-  summary: string;
-  predictions?: {
-    inventory_days_left?: Record<string, number | null>;
-    cash_forecast?: number;
-  };
-};
-
-function Card({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Navbar() {
   return (
-    <section className={CARD_CLASS}>
-      <h2 className="mb-4 text-xl font-semibold text-slate-900">{title}</h2>
-      {children}
+    <header className="sticky top-0 z-50 border-b border-white/60 bg-white/70 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6 md:px-10">
+        <p className="text-lg font-bold text-slate-900">Corelytics</p>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.96 }}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:bg-slate-50"
+        >
+          Login
+        </motion.button>
+      </div>
+    </header>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="mx-auto grid w-full max-w-7xl items-center gap-12 px-6 pt-14 pb-6 md:px-10 lg:grid-cols-2 lg:gap-16">
+      <motion.div initial="hidden" animate="visible" variants={sectionIntroVariants}>
+        <h1 className="text-4xl leading-tight font-bold text-slate-900 md:text-5xl">
+          Corelytics - Your AI Business Brain 🧠
+        </h1>
+        <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
+          Make smarter business decisions with AI-driven insights across inventory, finance, and sales.
+        </p>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.96 }}
+          className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 text-base font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl"
+        >
+          Get Started <FiArrowRight />
+        </motion.button>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 26 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
+        className="relative"
+      >
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+          className="relative rounded-3xl border border-white/60 bg-white p-6 shadow-2xl"
+          style={{ transform: "perspective(1100px) rotateX(6deg) rotateY(-7deg)" }}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-600">Live AI Dashboard</p>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+              <FiCheckCircle /> Online
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-500">Inventory Risk</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">Medium</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-500">Cash Forecast</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">+$58,224 in 10 days</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-500">Top Signal</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">Prioritize 3 high-probability deals</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="pointer-events-none absolute -right-6 -bottom-8 -z-10 h-40 w-40 rounded-full bg-purple-200/60 blur-2xl" />
+        <div className="pointer-events-none absolute -top-8 -left-8 -z-10 h-36 w-36 rounded-full bg-blue-200/60 blur-2xl" />
+      </motion.div>
     </section>
   );
 }
 
-function MetricCard({
-  title,
-  icon,
-  value,
-  note,
-  badgeClass,
-}: {
-  title: string;
-  icon: string;
-  value: string | number;
-  note: string;
-  badgeClass: string;
-}) {
+function Features() {
   return (
-    <div className={CARD_CLASS}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-      <p className="mt-3 text-2xl font-bold text-gray-900">
-        {icon} {value}
-      </p>
-      <p className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${badgeClass}`}>
-        {note}
-      </p>
-    </div>
+    <section className="mx-auto w-full max-w-7xl px-6 py-8 md:px-10">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionIntroVariants}>
+        <h2 className="text-3xl font-bold text-slate-900">Powerful features for modern teams</h2>
+        <p className="mt-2 text-base text-slate-600">Everything you need to run a smarter AI business dashboard.</p>
+      </motion.div>
+
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={staggerContainer}
+        className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        {FEATURES.map((feature) => {
+          const Icon = feature.icon;
+          return (
+            <motion.div key={feature.title} variants={staggerItem} className={cardClass}>
+              <div className="inline-flex rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 p-2.5 text-white shadow-lg">
+                <Icon size={19} />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-slate-900">{feature.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+    </section>
   );
 }
 
-function calculateInventoryDaysLeft(items: InventoryItem[]) {
-  const daysLeft: Record<string, number | null> = {};
+function HowItWorks() {
+  return (
+    <section className="mx-auto w-full max-w-7xl px-6 py-8 md:px-10">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={sectionIntroVariants}>
+        <h2 className="text-3xl font-bold text-slate-900">How it works</h2>
+        <p className="mt-2 text-base text-slate-600">Simple setup, fast insights, and practical decisions.</p>
+      </motion.div>
 
-  items.forEach((item) => {
-    if (item.daily_sales <= 0) {
-      daysLeft[item.item] = null;
-      return;
-    }
-
-    daysLeft[item.item] = Number((item.stock / item.daily_sales).toFixed(1));
-  });
-
-  return daysLeft;
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={staggerContainer}
+        className="mt-6 grid gap-5 md:grid-cols-3"
+      >
+        {STEPS.map((step, index) => (
+          <motion.div key={step.title} variants={staggerItem} className={cardClass}>
+            <p className="text-sm font-semibold text-blue-600">Step {index + 1}</p>
+            <h3 className="mt-2 text-xl font-semibold text-slate-900">{step.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
+          </motion.div>
+        ))}
+      </motion.div>
+    </section>
+  );
 }
 
-function improveRecommendationText(
-  recommendation: string,
-  items: InventoryItem[],
-  inventoryDaysLeft: Record<string, number | null>
-) {
-  // Beginner tip: convert generic backend text into a more actionable message.
-  if (recommendation.startsWith("Reorder ") && recommendation.endsWith(" soon")) {
-    const itemName = recommendation.replace("Reorder ", "").replace(" soon", "");
-    const item = items.find((entry) => entry.item === itemName);
-    const daysLeft = inventoryDaysLeft[itemName];
-
-    if (item && daysLeft !== null && daysLeft !== undefined) {
-      const reorderUnits = Math.max(item.daily_sales * 10 - item.stock, 20);
-      const roundedDays = Math.max(1, Math.round(daysLeft));
-      return `Reorder ${reorderUnits} units - stockout in ${roundedDays} days`;
-    }
-  }
-
-  if (recommendation === "Keep daily cash flow positive") {
-    return "Keep daily cash flow positive by controlling expense growth";
-  }
-
-  return recommendation;
+function ClosingCTA() {
+  return (
+    <section className="mx-auto w-full max-w-7xl px-6 pt-8 pb-16 md:px-10">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white shadow-lg md:p-10"
+      >
+        <h2 className="text-3xl font-bold md:text-4xl">Start making smarter decisions today</h2>
+        <p className="mt-3 max-w-2xl text-base text-blue-100">
+          Launch Corelytics in minutes and give your team instant AI-powered business clarity.
+        </p>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.96 }}
+          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3 text-base font-semibold text-blue-700 transition-all duration-300 hover:bg-blue-50"
+        >
+          Get Started Free <FiBarChart2 />
+        </motion.button>
+      </motion.div>
+    </section>
+  );
 }
 
 export default function Home() {
-  const [inventory, setInventory] = useState<InventoryResponse | null>(null);
-  const [finance, setFinance] = useState<FinanceResponse | null>(null);
-  const [sales, setSales] = useState<SalesResponse | null>(null);
-  const [insights, setInsights] = useState<InsightsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadDashboardData() {
-      if (!API_BASE_URL) {
-        setError("NEXT_PUBLIC_API_URL is missing. Add it in frontend/.env.local and restart npm run dev.");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const [inventoryRes, financeRes, salesRes, insightsRes] = await Promise.all([
-          api.get("/inventory"),
-          api.get("/finance"),
-          api.get("/sales"),
-          api.get("/ai/insights"),
-        ]);
-
-        setInventory(inventoryRes.data as InventoryResponse);
-        setFinance(financeRes.data as FinanceResponse);
-        setSales(salesRes.data as SalesResponse);
-        setInsights(insightsRes.data as InsightsResponse);
-      } catch {
-        setError("Could not load data from backend. Check NEXT_PUBLIC_API_URL and CORS settings.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadDashboardData();
-  }, []);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-gray-100 p-6 md:p-10">
-        <div className="mx-auto max-w-7xl rounded-2xl bg-white p-8 text-gray-700 shadow-md">
-          Loading insights...
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="min-h-screen bg-gray-100 p-6 md:p-10">
-        <div className="mx-auto max-w-7xl rounded-2xl border border-red-200 bg-red-50 p-8 text-red-700 shadow-md">
-          {error}
-        </div>
-      </main>
-    );
-  }
-
-  const inventoryItems = inventory?.items ?? [];
-  const inventoryDaysLeft = insights?.predictions?.inventory_days_left ?? calculateInventoryDaysLeft(inventoryItems);
-
-  // Beginner tip: metric status is based on smallest days-left value.
-  const finiteInventoryDays = Object.values(inventoryDaysLeft).filter(
-    (value): value is number => typeof value === "number"
-  );
-  const minInventoryDays = finiteInventoryDays.length > 0 ? Math.min(...finiteInventoryDays) : Infinity;
-
-  let inventoryRisk = "Low";
-  let inventoryRiskStyle = "bg-green-100 text-green-700";
-  let inventoryRiskNote = "Stock levels are safe";
-
-  if (minInventoryDays <= 7) {
-    inventoryRisk = "High";
-    inventoryRiskStyle = "bg-red-100 text-red-700";
-    inventoryRiskNote = "Risk of stockout soon";
-  } else if (minInventoryDays <= 14) {
-    inventoryRisk = "Medium";
-    inventoryRiskStyle = "bg-yellow-100 text-yellow-700";
-    inventoryRiskNote = "Watch fast-moving items";
-  }
-
-  const cashForecast = insights?.predictions?.cash_forecast ?? finance?.cash_forecast_10_days ?? 0;
-  const currentCash = finance?.data.cash ?? 0;
-
-  let cashStatus = "Healthy";
-  let cashStatusStyle = "bg-green-100 text-green-700";
-  let cashStatusNote = "Cash trend looks stable";
-
-  if (cashForecast < 0) {
-    cashStatus = "Critical";
-    cashStatusStyle = "bg-red-100 text-red-700";
-    cashStatusNote = "Immediate action needed";
-  } else if (cashForecast < currentCash) {
-    cashStatus = "Warning";
-    cashStatusStyle = "bg-yellow-100 text-yellow-700";
-    cashStatusNote = "Cash is trending down";
-  }
-
-  const salesOpportunitiesCount = sales?.high_probability_deals.length ?? 0;
-  const demandChartUrl = API_BASE_URL ? `${API_BASE_URL}/models/sales/forecast/plot` : "";
-  const cashChartUrl = API_BASE_URL ? `${API_BASE_URL}/models/finance/cash-forecast/plot` : "";
-
-  const alerts = insights?.alerts?.length ? insights.alerts : ["No alerts - business running smoothly"];
-  const recommendations = (insights?.recommendations ?? []).map((recommendation) =>
-    improveRecommendationText(recommendation, inventoryItems, inventoryDaysLeft)
-  );
-  const displayRecommendations =
-    recommendations.length > 0 ? recommendations : ["No recommendations - keep current strategy"];
-
   return (
-    <main className="min-h-screen bg-gray-100 p-6 md:p-10">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-2xl bg-white p-6 shadow-md">
-          <h1 className="text-3xl font-bold text-gray-900 md:text-4xl">Corelytics - Your AI Business Brain 🧠</h1>
-          <p className="mt-2 text-base text-gray-600">Live insights powered by AI</p>
-        </header>
-
-        <section className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 shadow-md md:p-10">
-          <div className="mb-8">
-            <p className="text-sm font-semibold uppercase tracking-wider text-blue-100">Main Feature</p>
-            <h2 className="mt-2 text-3xl font-bold text-white md:text-4xl">Corelytics Intelligence 🧠</h2>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-blue-100 md:text-lg">
-              Real-time AI signals for inventory, finance, and sales performance.
-            </p>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl bg-white/15 p-6 shadow-md backdrop-blur-sm">
-              <h3 className="mb-3 text-xl font-semibold text-white">⚠️ Alerts</h3>
-              <ul className="space-y-2 text-sm leading-6 text-blue-50 md:text-base">
-                {alerts.map((alert) => (
-                  <li key={alert} className="rounded-xl bg-white/15 px-3 py-2">
-                    {alert}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-2xl bg-white/15 p-6 shadow-md backdrop-blur-sm">
-              <h3 className="mb-3 text-xl font-semibold text-white">💡 Recommendations</h3>
-              <ul className="space-y-2 text-sm leading-6 text-blue-50 md:text-base">
-                {displayRecommendations.map((recommendation) => (
-                  <li key={recommendation} className="rounded-xl bg-white/15 px-3 py-2">
-                    {recommendation}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-2xl bg-white/15 p-6 shadow-md backdrop-blur-sm">
-              <h3 className="mb-3 text-xl font-semibold text-white">📊 Summary</h3>
-              <p className="text-sm leading-7 text-blue-50 md:text-base">{insights?.summary}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-3">
-          <MetricCard
-            title="Inventory Risk"
-            icon="📦"
-            value={inventoryRisk}
-            note={inventoryRiskNote}
-            badgeClass={inventoryRiskStyle}
-          />
-          <MetricCard
-            title="Cash Status"
-            icon="💰"
-            value={cashStatus}
-            note={cashStatusNote}
-            badgeClass={cashStatusStyle}
-          />
-          <MetricCard
-            title="Sales Opportunities"
-            icon="🎯"
-            value={salesOpportunitiesCount}
-            note="High-probability deals"
-            badgeClass="bg-green-100 text-green-700"
-          />
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <Card title="Demand Forecast Chart">
-            <p className="mb-4 text-sm text-gray-600">Projected demand trend from the sales forecasting model.</p>
-            {API_BASE_URL ? (
-              <Image
-                src={demandChartUrl}
-                alt="Demand forecast chart"
-                width={1200}
-                height={520}
-                className="w-full rounded-xl border border-gray-200"
-                unoptimized
-              />
-            ) : (
-              <p className="rounded-lg bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
-                Set NEXT_PUBLIC_API_URL in .env.local to load charts.
-              </p>
-            )}
-          </Card>
-
-          <Card title="Cash Flow Chart">
-            <p className="mb-4 text-sm text-gray-600">10-day cash forecast generated by the finance model.</p>
-            {API_BASE_URL ? (
-              <Image
-                src={cashChartUrl}
-                alt="Cash flow chart"
-                width={1200}
-                height={520}
-                className="w-full rounded-xl border border-gray-200"
-                unoptimized
-              />
-            ) : (
-              <p className="rounded-lg bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
-                Set NEXT_PUBLIC_API_URL in .env.local to load charts.
-              </p>
-            )}
-          </Card>
-        </section>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card title="Inventory Summary">
-            <p className="mb-4 text-sm text-gray-600">Total items: {inventory?.count ?? 0}</p>
-            <div className="space-y-2 text-sm text-gray-700">
-              {(inventory?.items ?? []).map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
-                >
-                  <span>{item.item}</span>
-                  <span>Stock: {item.stock}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="Finance Summary">
-            <div className="space-y-2 text-sm text-gray-700">
-              <p>Current cash: ${finance?.data.cash ?? 0}</p>
-              <p>Daily income: ${finance?.data.daily_income ?? 0}</p>
-              <p>Daily expense: ${finance?.data.daily_expense ?? 0}</p>
-              <p className="font-semibold text-gray-900">
-                Forecast (10 days): ${finance?.cash_forecast_10_days ?? 0}
-              </p>
-            </div>
-          </Card>
-
-          <Card title="Sales Summary">
-            <p className="mb-2 text-sm text-gray-600">Total deals: {sales?.count ?? 0}</p>
-            <p className="mb-4 text-sm text-gray-600">
-              High-probability deals: {sales?.high_probability_deals.length ?? 0}
-            </p>
-            <div className="space-y-2 text-sm text-gray-700">
-              {(sales?.deals ?? []).map((deal) => (
-                <div
-                  key={deal.deal_id}
-                  className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
-                >
-                  <span>{deal.customer}</span>
-                  <span>{Math.round(deal.probability * 100)}%</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </div>
+    <main className="min-h-screen bg-gray-100 text-slate-900">
+      <Navbar />
+      <Hero />
+      <Features />
+      <HowItWorks />
+      <ClosingCTA />
     </main>
   );
 }
