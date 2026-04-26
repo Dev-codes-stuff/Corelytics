@@ -1,0 +1,13 @@
+deal_value,stage,previous_success,closed
+4000,lead,0,0
+5500,qualified,0,0
+7000,proposal,1,1
+9000,negotiation,1,1
+6000,qualified,1,1
+3500,lead,0,0
+8200,proposal,1,1
+5000,qualified,0,0
+9800,negotiation,1,1
+7600,proposal,0,1
+4200,lead,1,0
+8800,negotiation,0,1
